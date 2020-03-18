@@ -27,6 +27,8 @@ sealed abstract class RList[+T] {
   def flatMap[S](f: T => RList[S]): RList[S]
 
   def filter(f: T => Boolean): RList[T]
+
+  def rle: RList[(T, Int)]
 }
 
 case object RNil extends RList[Nothing] {
@@ -53,6 +55,8 @@ case object RNil extends RList[Nothing] {
   override def flatMap[S](f: Nothing => RList[S]): RList[S] = RNil
 
   override def filter(f: Nothing => Boolean): RList[Nothing] = RNil
+
+  override def rle: RList[(Nothing, Int)] = RNil
 }
 
 case class Cons[+T](override val head: T, override val tail: RList[T]) extends RList[T] {
@@ -160,6 +164,17 @@ case class Cons[+T](override val head: T, override val tail: RList[T]) extends R
     }
     helper(this, RNil)
   }
+
+  override def rle: RList[(T, Int)] = {
+    @tailrec
+    def rleTailrec(remaining: RList[T], currentEl: T, currentCnt: Int, acc: RList[(T, Int)]): RList[(T, Int)] = {
+      if (remaining.isEmpty) if (currentCnt > 0) acc.append((currentEl, currentCnt)) else acc
+      else if (currentEl == remaining.head) rleTailrec(remaining.tail, remaining.head, currentCnt+1, acc)
+      else rleTailrec(remaining.tail, remaining.head, 1, acc.append(currentEl, currentCnt))
+    }
+    if (this.isEmpty) RNil
+    else rleTailrec(this.tail, this.head, 1, RNil)
+  }
 }
 
 
@@ -177,8 +192,9 @@ object RList {
 
 object ListProblems extends App {
   val listA = RList.from(1 to 10)
-  val listB = RList.from(11 to 20)
-  println(listA.map(x => x*2))
-  println(listA.flatMap(x => Cons(x, Cons(x+1, RNil))))
-  println(listA.filter(x => x%2 == 0))
+  val listB = RList.from(List(1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5, 5))
+  val listC = RList.from(List())
+  println(listB.rle)
+  println(listC.rle)
+  println(RNil.rle)
 }
