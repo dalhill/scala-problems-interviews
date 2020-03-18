@@ -1,6 +1,7 @@
 package com.rockthejvm.lists
 
 import scala.annotation.tailrec
+import scala.collection.convert.StreamExtensions.AccumulatorFactoryInfo
 
 sealed abstract class RList[+T] {
   def head: T
@@ -20,6 +21,12 @@ sealed abstract class RList[+T] {
   def ++[S >: T](anotherList: RList[S]): RList[S]
 
   def removeAt(index: Int): RList[T]
+
+  def map[S](f: T => S): RList[S]
+
+  def flatMap[S](f: T => RList[S]): RList[S]
+
+  def filter(f: T => Boolean): RList[T]
 }
 
 case object RNil extends RList[Nothing] {
@@ -40,6 +47,12 @@ case object RNil extends RList[Nothing] {
   override def ++[S >: Nothing](anotherList: RList[S]): RList[S] = anotherList
 
   override def removeAt(index: Int): RList[Nothing] = throw new NoSuchElementException
+
+  override def map[S](f: Nothing => S): RList[S] = RNil
+
+  override def flatMap[S](f: Nothing => RList[S]): RList[S] = RNil
+
+  override def filter(f: Nothing => Boolean): RList[Nothing] = RNil
 }
 
 case class Cons[+T](override val head: T, override val tail: RList[T]) extends RList[T] {
@@ -119,6 +132,34 @@ case class Cons[+T](override val head: T, override val tail: RList[T]) extends R
     else if (index < 0) this
     else helper(this, RNil)
   }
+
+  def map[S](f: T => S): RList[S] = {
+    @tailrec
+    def helper(remaining: RList[T], accumulator: RList[S]): RList[S] = {
+      if (remaining.isEmpty) accumulator
+      else helper(remaining.tail, accumulator.append(f(remaining.head)))
+    }
+    helper(this, RNil)
+  }
+
+  override def flatMap[S](f: T => RList[S]): RList[S] = {
+    @tailrec
+    def helper(remaining: RList[T], accumulator: RList[S]): RList[S] = {
+      if (remaining.isEmpty) accumulator
+      else helper(remaining.tail, accumulator ++ f(remaining.head))
+    }
+    helper(this, RNil)
+  }
+
+  override def filter(f: T => Boolean): RList[T] = {
+    @tailrec
+    def helper(remaining: RList[T], accumulator: RList[T]): RList[T] = {
+      if (remaining.isEmpty) accumulator
+      else if (f(remaining.head)) helper(remaining.tail, accumulator.append(remaining.head))
+      else helper(remaining.tail, accumulator)
+    }
+    helper(this, RNil)
+  }
 }
 
 
@@ -137,5 +178,7 @@ object RList {
 object ListProblems extends App {
   val listA = RList.from(1 to 10)
   val listB = RList.from(11 to 20)
-  println(listA.removeAt(9))
+  println(listA.map(x => x*2))
+  println(listA.flatMap(x => Cons(x, Cons(x+1, RNil))))
+  println(listA.filter(x => x%2 == 0))
 }
